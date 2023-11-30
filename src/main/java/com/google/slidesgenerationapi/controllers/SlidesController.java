@@ -1,12 +1,16 @@
 package com.google.slidesgenerationapi.controllers;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,6 +24,8 @@ import com.google.api.services.slides.v1.model.Request;
 import com.google.api.services.slides.v1.model.SubstringMatchCriteria;
 import com.google.slidesgenerationapi.services.DriveService;
 import com.google.slidesgenerationapi.services.SlidesService;
+
+
 
 @RestController
 @RequestMapping("/api/slides")
@@ -78,11 +84,21 @@ public class SlidesController {
     }
 
     @GetMapping("/path")
-    public String getJsonPath(){
+    public String getJsonPath() throws FileNotFoundException{
 
         String filePath = getClass().getClassLoader().getResource("service-account_veloci.json").getPath();
-        return ("File Path: " + filePath);
+        java.io.File file = ResourceUtils.getFile("classpath:service-account_veloci.json");
+        file.getPath();
+        return ("File Path: " + file.getPath());
+        
 
+    }
+
+    @GetMapping("/exists/filePath={filePath}")
+    public ResponseEntity<Boolean> checkFileExists(@PathVariable String filePath) {
+        java.io.File file = new java.io.File(filePath);
+        boolean exists = file.exists();
+        return ResponseEntity.ok(exists);
     }
 
 

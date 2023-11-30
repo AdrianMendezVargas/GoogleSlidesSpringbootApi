@@ -12,13 +12,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.springframework.core.io.ClassPathResource;
+
 public class SlidesService {
 
     private static final String APPLICATION_NAME = "Your-Spring-Boot-App";
-    private static final String CREDENTIALS_FILE_PATH = "service-account_veloci.json";
+    //private static final String CREDENTIALS_FILE_PATH = "images\\service-account_veloci.json";
 
     public Slides getService() throws IOException, GeneralSecurityException {
-        GoogleCredential credential = GoogleCredential.fromStream(ClassLoader.getSystemResourceAsStream(CREDENTIALS_FILE_PATH))
+
+        //ClassPathResource classPathResource = new ClassPathResource("classpath:service-account_veloci.json");
+
+        GoogleCredential credential = GoogleCredential.fromStream(getClass().getClassLoader().getResourceAsStream("service-account_veloci.json"))
                 .createScoped(Collections.singleton(SlidesScopes.PRESENTATIONS));
         return new Slides.Builder(credential.getTransport(), credential.getJsonFactory(), credential)
                 .setApplicationName(APPLICATION_NAME)
