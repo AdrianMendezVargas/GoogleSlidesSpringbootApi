@@ -28,7 +28,7 @@ public class SlidesController {
 
     @GetMapping()
     public String get(){
-        return "hello";
+        return "hello 29-11-2023";
     }
 
     @GetMapping("/demo")
