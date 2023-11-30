@@ -69,5 +69,22 @@ public class SlidesController {
         driveService.permissions().create(copiedPresentationId, permiso).execute();
 
     }
+
+    @GetMapping("/dir")
+    public String getDirectory(){
+
+        return ("Current Working Directory: " + System.getProperty("user.dir"));
+
+    }
+
+    @GetMapping("/path")
+    public String getJsonPath(){
+
+        String filePath = getClass().getClassLoader().getResource("service-account_veloci.json").getPath();
+        return ("File Path: " + filePath);
+
+    }
+
+
     
 }

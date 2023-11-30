@@ -11,6 +11,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 
@@ -19,11 +20,12 @@ public class DriveService {
     private static final String APLICACION = "Mi-Aplicacion-Spring-Boot";
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
-    private static final String CREDENCIALES_RUTA = "src\\main\\resources\\service-account_veloci.json";
+    private static final String CREDENCIALES_RUTA = "service-account_veloci.json";
 
     public Drive getService() throws IOException, GeneralSecurityException {
         HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        GoogleCredentials credenciales = GoogleCredentials.fromStream(new FileInputStream(CREDENCIALES_RUTA))
+
+        GoogleCredentials credenciales = GoogleCredentials.fromStream(ClassLoader.getSystemResourceAsStream(CREDENCIALES_RUTA))
                 .createScoped(Collections.singleton(DriveScopes.DRIVE));
 
         return new Drive.Builder(httpTransport, JSON_FACTORY, new HttpCredentialsAdapter(credenciales))

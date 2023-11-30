@@ -15,10 +15,10 @@ import java.util.List;
 public class SlidesService {
 
     private static final String APPLICATION_NAME = "Your-Spring-Boot-App";
-    private static final String CREDENTIALS_FILE_PATH = "src\\main\\resources\\service-account_veloci.json";
+    private static final String CREDENTIALS_FILE_PATH = "service-account_veloci.json";
 
     public Slides getService() throws IOException, GeneralSecurityException {
-        GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(CREDENTIALS_FILE_PATH))
+        GoogleCredential credential = GoogleCredential.fromStream(ClassLoader.getSystemResourceAsStream(CREDENTIALS_FILE_PATH))
                 .createScoped(Collections.singleton(SlidesScopes.PRESENTATIONS));
         return new Slides.Builder(credential.getTransport(), credential.getJsonFactory(), credential)
                 .setApplicationName(APPLICATION_NAME)
