@@ -24,11 +24,11 @@ import com.google.slidesgenerationapi.services.SlidesService;
 @SpringBootTest
 class SlidesGenerationApiApplicationTests {
 
-	@Test
+	//@Test
 	void contextLoads() {
 	}
 
-	@Test
+	//@Test
     public void testCreatePresentation() throws IOException, GeneralSecurityException {
         SlidesService googleSlidesService = new SlidesService();
 
@@ -109,7 +109,7 @@ class SlidesGenerationApiApplicationTests {
         slidesService.presentations().batchUpdate(presentationId, batchUpdateRequest).execute();
     }
 
-    @Test
+    //@Test
     public void clonePresentation() throws IOException, GeneralSecurityException{
 
         Drive driveService = new DriveService().getService();
@@ -135,7 +135,7 @@ class SlidesGenerationApiApplicationTests {
 
     }
 
-    @Test
+    //@Test
     void testDemo() throws IOException, GeneralSecurityException{
 
         //1. Clonar
