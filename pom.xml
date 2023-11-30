@@ -27,6 +27,14 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+		<!-- * javax.servlet-api -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>4.0.1</version> <!-- Adjust version as needed -->
+			<scope>provided</scope>
+		</dependency>
+
         <!-- Spring Cloud GCP Starter -->
         <dependency>
             <groupId>com.google.cloud</groupId>
