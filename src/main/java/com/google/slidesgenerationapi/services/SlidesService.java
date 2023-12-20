@@ -1,31 +1,35 @@
 package com.google.slidesgenerationapi.services;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.services.slides.v1.model.*;
-import com.google.api.services.slides.v1.*;
-
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.security.Permission;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Service;
 
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.slides.v1.Slides;
+import com.google.api.services.slides.v1.SlidesScopes;
+import com.google.api.services.slides.v1.model.Presentation;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
+
+@Service
 public class SlidesService {
 
     private static final String APPLICATION_NAME = "Your-Spring-Boot-App";
-    //private static final String CREDENTIALS_FILE_PATH = "images\\service-account_veloci.json";
+    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
     public Slides getService() throws IOException, GeneralSecurityException {
 
-        //ClassPathResource classPathResource = new ClassPathResource("classpath:service-account_veloci.json");
 
-        GoogleCredential credential = GoogleCredential.fromStream(getClass().getClassLoader().getResourceAsStream("service-account_veloci.json"))
+        HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+        GoogleCredentials credentials = GoogleCredentials.fromStream(getClass().getClassLoader().getResourceAsStream("service-account_veloci.json"))
                 .createScoped(Collections.singleton(SlidesScopes.PRESENTATIONS));
-        return new Slides.Builder(credential.getTransport(), credential.getJsonFactory(), credential)
+
+        return new Slides.Builder(httpTransport , JSON_FACTORY, new HttpCredentialsAdapter(credentials))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
     }
