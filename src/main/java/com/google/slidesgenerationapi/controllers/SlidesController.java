@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -45,9 +46,12 @@ import com.google.api.services.drive.model.Permission;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.AddChartRequest;
 import com.google.api.services.sheets.v4.model.BasicChartAxis;
+import com.google.api.services.sheets.v4.model.BasicChartDomain;
+import com.google.api.services.sheets.v4.model.BasicChartSeries;
 import com.google.api.services.sheets.v4.model.BasicChartSpec;
 import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
 import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetResponse;
+import com.google.api.services.sheets.v4.model.BatchUpdateValuesRequest;
 import com.google.api.services.sheets.v4.model.ChartData;
 import com.google.api.services.sheets.v4.model.ChartSourceRange;
 import com.google.api.services.sheets.v4.model.ChartSpec;
@@ -678,89 +682,217 @@ public class SlidesController {
         return requests;
     }
 
-    private List<Request> getChartPlaceholdersRequest(Map<String, ChartInfo> chartPlaceholders) {
+    public List<Request> getChartPlaceholdersRequest(Map<String, ChartInfo> chartPlaceholders) throws IOException {
         List<Request> requests = new ArrayList<>();
+
         BatchUpdateSpreadsheetRequest batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
         batchUpdateSpreadsheetRequest.setRequests(new ArrayList<>());
 
         for (Map.Entry<String, ChartInfo> chartPlaceholder : chartPlaceholders.entrySet()) {
-            ChartSpec chartSpec = createChartSpec(chartPlaceholder.getValue());
 
-            // String key = chartPlaceholder.getKey();
-            addChartSpecToBatchUpdateSpreadsheet(chartSpec, chartPlaceholder.getKey(), batchUpdateSpreadsheetRequest,
-                    requests);
+            List<ValueRange> valueRanges = new ArrayList<ValueRange>();
+
+            ChartSpec chartSpec = new ChartSpec();
+            chartSpec.setTitle(chartPlaceholder.getValue().getTitle());
+
+            if (chartPlaceholder.getValue().getType().equals("PIE")
+                    || chartPlaceholder.getValue().getType().equals("DOUGHNUT")) {
+                chartSpec.setPieChart(new PieChartSpec());
+                chartSpec.getPieChart().setThreeDimensional(false);
+                chartSpec.getPieChart().setPieHole(chartPlaceholder.getValue().getType().equals("PIE") ? 0 : 0.5);
+
+                chartSpec.getPieChart().setDomain(new ChartData()
+                        .setSourceRange(new ChartSourceRange()
+                                .setSources(List.of(new GridRange()
+                                        .setEndColumnIndex(1)
+                                        .setEndRowIndex(Integer.MAX_VALUE)
+                                        .setStartColumnIndex(0)
+                                        .setStartRowIndex(0)))));
+
+                chartSpec.getPieChart().setSeries(new ChartData()
+                        .setSourceRange(new ChartSourceRange()
+                                .setSources(List.of(new GridRange()
+                                        .setEndColumnIndex(2)
+                                        .setEndRowIndex(Integer.MAX_VALUE)
+                                        .setStartColumnIndex(1)
+                                        .setStartRowIndex(0)))));
+
+                // Logic for data in Column A
+                List<List<Object>> columnDataA = new ArrayList<>();
+
+                Entry<String, String[]> domain = chartPlaceholder.getValue().getDomains().entrySet().iterator().next();
+
+                // add header of column A
+                columnDataA.add(List.of(domain.getKey()));
+
+                for (var dataCell : domain.getValue()) {
+                    columnDataA.add(List.of(dataCell));
+                }
+
+                // Create data range for Column A
+                var dataRangeA = new ValueRange()
+                        .setRange("A:A")
+                        .setValues(columnDataA);
+
+                valueRanges.add(dataRangeA);
+
+                // Logic for data in Column B
+                List<List<Object>> columnDataB = new ArrayList<>();
+
+                Entry<String, String[]> series = chartPlaceholder.getValue().getSeries().entrySet().iterator().next();
+
+                // add header of column B
+                columnDataB.add(List.of(series.getKey()));
+
+                for (var dataCell : series.getValue()) {
+                    columnDataB.add(List.of(dataCell));
+                }
+
+                // Create data range for Column B
+                var dataRangeB = new ValueRange()
+                        .setRange("B:B")
+                        .setValues(columnDataB);
+
+                valueRanges.add(dataRangeB);
+
+            } else {
+                chartSpec.setBasicChart(new BasicChartSpec());
+                chartSpec.getBasicChart().setChartType(chartPlaceholder.getValue().getType());
+                chartSpec.getBasicChart().setStackedType(chartPlaceholder.getValue().getStackedType());
+                chartSpec.getBasicChart().setHeaderCount(1);
+                chartSpec.getBasicChart().setLegendPosition(chartPlaceholder.getValue().getLegendPosition());
+
+                chartSpec.getBasicChart().setAxis(List.of(
+                        new BasicChartAxis().setPosition("BOTTOM_AXIS")
+                                .setTitle(chartPlaceholder.getValue().getBottomAxisName()),
+                        new BasicChartAxis().setPosition("LEFT_AXIS")
+                                .setTitle(chartPlaceholder.getValue().getLeftAxisName())));
+
+                // Logic for domains and series
+                // Logic for domains
+                for (int i = 0; i < chartPlaceholder.getValue().getDomains().size(); i++) {
+                    Entry<String, String[]> domain = (Entry<String, String[]>)chartPlaceholder.getValue().getDomains().entrySet().toArray()[i];
+
+                    chartSpec.getBasicChart().setDomains(new ArrayList<>());
+                    chartSpec.getBasicChart().getDomains().add(new BasicChartDomain()
+                            .setDomain(new ChartData()
+                                    .setSourceRange(new ChartSourceRange()
+                                            .setSources(List.of(new GridRange()
+                                                    .setEndColumnIndex(i + 1)
+                                                    .setEndRowIndex(Integer.MAX_VALUE)
+                                                    .setStartColumnIndex(0)
+                                                    .setStartRowIndex(0))))));
+
+                    // Add data for the domain
+                    var columnData = new ArrayList<List<Object>>();
+
+                    // add header of the column
+                    columnData.add(List.of((domain).getKey()));
+
+                    for (var dataCell : domain.getValue()) {
+                        columnData.add(List.of(dataCell));
+                    }
+
+                    // determine the column letter based on the index
+                    var columnLetter = getColumnLetter(i);
+
+                    // Create data range for the domain
+                    var dataRange = new ValueRange()
+                            .setRange(columnLetter + ":" + columnLetter)
+                            .setValues(columnData);
+
+                    valueRanges.add(dataRange);
+                }
+
+                // Logic for series
+                for (int i = 0; i < chartPlaceholder.getValue().getSeries().size(); i++) {
+                    Entry<String, String[]> series = (Entry<String, String[]>)chartPlaceholder.getValue().getSeries().entrySet().toArray()[i];
+
+                    chartSpec.getBasicChart().setSeries(new ArrayList<>());
+                    chartSpec.getBasicChart().getSeries().add(new BasicChartSeries()
+                            .setSeries(new ChartData()
+                                    .setSourceRange(new ChartSourceRange()
+                                            .setSources(List.of(new GridRange()
+                                                    .setEndColumnIndex(
+                                                            i + (chartPlaceholder.getValue().getDomains().size()) + 1)
+                                                    .setEndRowIndex(Integer.MAX_VALUE)
+                                                    .setStartColumnIndex(
+                                                            (i + (chartPlaceholder.getValue().getDomains().size()) + 1)
+                                                                    - 1)
+                                                    .setStartRowIndex(0))))));
+
+                    // Add data for the series
+                    var columnData = new ArrayList<List<Object>>();
+
+                    // add header of the column
+                    columnData.add(List.of(series.getKey()));
+
+                    for (var dataCell : series.getValue()) {
+                        columnData.add(List.of(dataCell));
+                    }
+
+                    // determine the column letter based on the index
+                    var columnLetter = getColumnLetter(i + chartPlaceholder.getValue().getDomains().size());
+
+                    // Create data range for the series
+                    var dataRange = new ValueRange()
+                            .setRange(columnLetter + ":" + columnLetter)
+                            .setValues(columnData);
+
+                    valueRanges.add(dataRange);
+                }
+
+            }
+
+            // Update the values on sheet
+            sheetsService.spreadsheets().values()
+                    .batchUpdate("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0", new BatchUpdateValuesRequest()
+                            .setData(valueRanges)
+                            .setValueInputOption("USER_ENTERED"))
+                    .execute();
+
+            // Logic to add ChartSpec to the batch update spreadsheet request
+            // Logic to add ChartSpec to the batch update spreadsheet request
+            var addChartRequest = new AddChartRequest()
+                    .setChart(new EmbeddedChart()
+                            .setSpec(chartSpec)
+                            .setPosition(new EmbeddedObjectPosition()
+                                    .setOverlayPosition(new OverlayPosition()
+                                            .setOffsetXPixels(50)
+                                            .setOffsetYPixels(50)
+                                            .setWidthPixels(500)
+                                            .setHeightPixels(350))));
+
+            // Add the chart request to the batch update spreadsheet request
+            batchUpdateSpreadsheetRequest.getRequests().add(new com.google.api.services.sheets.v4.model.Request()
+                    .setAddChart(addChartRequest));
+
+            // requests.add(new Request()); // Replace with the actual Request instance
         }
 
-        try {
-            Sheets.Spreadsheets.BatchUpdate batchUpdate = sheetsService.spreadsheets().batchUpdate(
-                    "1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0",
-                    batchUpdateSpreadsheetRequest);
-            BatchUpdateSpreadsheetResponse response = batchUpdate.execute();
+        Sheets.Spreadsheets.BatchUpdate batchUpdate;
+        batchUpdate = sheetsService.spreadsheets().batchUpdate("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0",
+                batchUpdateSpreadsheetRequest);
+        BatchUpdateSpreadsheetResponse response = batchUpdate.execute();
 
-            for (int i = 0; i < response.getReplies().size(); i++) {
-                Response res = response.getReplies().get(i);
+        for (int i = 0; i < response.getReplies().size(); i++) {
+            Response res = response.getReplies().get(i);
 
-                if (res.getAddChart() != null) {
-                    Map.Entry<String, ChartInfo> entry = (Map.Entry<String, ChartInfo>) chartPlaceholders.entrySet()
-                            .toArray()[i];
-                    requests.add(new Request()
-                            .setReplaceAllShapesWithSheetsChart(new ReplaceAllShapesWithSheetsChartRequest()
-                                    .setSpreadsheetId("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0") // Replace with the actual spreadsheet ID
-                                    .setChartId(res.getAddChart().getChart().getChartId())
-                                    .setLinkingMode("NOT_LINKED_IMAGE")
-                                    .setContainsText(new SubstringMatchCriteria()
-                                            .setMatchCase(true)
-                                            .setText(entry.getKey()))));
-                }
+            if (res.getAddChart() != null) {
+
+                requests.add(new Request()
+                        .setReplaceAllShapesWithSheetsChart(new ReplaceAllShapesWithSheetsChartRequest()
+                                .setSpreadsheetId("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0")
+                                .setChartId(response.getReplies().get(i).getAddChart().getChart().getChartId())
+                                .setLinkingMode("NOT_LINKED_IMAGE")
+                                .setContainsText(new SubstringMatchCriteria()
+                                        .setMatchCase(true)
+                                        .setText(((Map.Entry<String, ChartInfo>) chartPlaceholders.entrySet()
+                                                .toArray()[i]).getKey()))));
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
 
         return requests;
-    }
-
-    private ChartSpec createChartSpec(ChartInfo chartInfo) {
-        ChartSpec chartSpec = new ChartSpec();
-
-        chartSpec.setTitle(chartInfo.getTitle());
-        chartSpec.setSubtitle(chartInfo.getSubtitle());
-
-        if ("PIE".equals(chartInfo.getType()) || "DOUGHNUT".equals(chartInfo.getType())) {
-            // Implementation for PIE and DOUGHNUT charts
-            chartSpec.setPieChart(new PieChartSpec()
-                    .setThreeDimensional(false)
-                    .setPieHole("PIE".equals(chartInfo.getType()) ? 0.0 : 0.5)
-                    .setDomain(new ChartData()
-                            .setSourceRange(new ChartSourceRange()
-                                    .setSources(Arrays.asList(new GridRange()
-                                            .setEndColumnIndex(1)
-                                            .setEndRowIndex(Integer.MAX_VALUE)
-                                            .setStartColumnIndex(0)
-                                            .setStartRowIndex(0)))))
-                    .setSeries(new ChartData()
-                            .setSourceRange(new ChartSourceRange()
-                                    .setSources(Arrays.asList(new GridRange()
-                                            .setEndColumnIndex(2)
-                                            .setEndRowIndex(Integer.MAX_VALUE)
-                                            .setStartColumnIndex(1)
-                                            .setStartRowIndex(0))))));
-        } else {
-            // Implementation for other chart types
-            chartSpec.setBasicChart(new BasicChartSpec()
-                    .setChartType(chartInfo.getType())
-                    .setStackedType(chartInfo.getStackedType())
-                    .setHeaderCount(1)
-                    .setLegendPosition(chartInfo.getLegendPosition())
-                    .setAxis(Arrays.asList(
-                            new BasicChartAxis().setPosition("BOTTOM_AXIS").setTitle(chartInfo.getBottomAxisName()),
-                            new BasicChartAxis().setPosition("LEFT_AXIS").setTitle(chartInfo.getLeftAxisName()))));
-
-            // Add domains, series, and other properties based on your chartInfo
-            // ...
-        }
-
-        return chartSpec;
     }
 
     private void addMarketingSlides(Map<String, String> marketingPresentationIdsToAdd, String targetPresentationId,
@@ -830,46 +962,6 @@ public class SlidesController {
         }
 
         return requests;
-    }
-
-    private void handleChartData(String columnLetter, int columnIndex, Map<String, List<Object>> data) {
-        List<List<Object>> columnData = new ArrayList<>();
-        columnData.add(Collections.singletonList(columnIndex == 0 ? "Category" : "Value"));
-
-        for (Map.Entry<String, List<Object>> entry : data.entrySet()) {
-            columnData.add(Collections.singletonList(entry.getKey()));
-            columnData.addAll(entry.getValue().stream().map(Collections::singletonList).collect(Collectors.toList()));
-        }
-
-        ValueRange dataRange = new ValueRange()
-                .setRange(columnLetter + ":" + columnLetter)
-                .setValues(columnData);
-
-        try {
-            sheetsService.spreadsheets().values()
-                    .update("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0", columnLetter + ":" + columnLetter,
-                            dataRange)
-                    .setValueInputOption("USER_ENTERED")
-                    .execute();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void addChartSpecToBatchUpdateSpreadsheet(ChartSpec chartSpec, String chartKey,
-            BatchUpdateSpreadsheetRequest batchUpdateSpreadsheetRequest, List<Request> requests) {
-        AddChartRequest addChartRequest = new AddChartRequest()
-                .setChart(new EmbeddedChart()
-                        .setSpec(chartSpec)
-                        .setPosition(new EmbeddedObjectPosition()
-                                .setOverlayPosition(new OverlayPosition()
-                                        .setOffsetXPixels(50)
-                                        .setOffsetYPixels(50)
-                                        .setWidthPixels(500)
-                                        .setHeightPixels(350))));
-
-        batchUpdateSpreadsheetRequest.getRequests()
-                .add(new com.google.api.services.sheets.v4.model.Request().setAddChart(addChartRequest));
     }
 
     private String getColumnLetter(int columnIndex) {

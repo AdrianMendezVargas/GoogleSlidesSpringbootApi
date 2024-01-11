@@ -1,5 +1,6 @@
 package com.google.slidesgenerationapi;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.FileOutputStream;
@@ -47,6 +48,25 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.drive.model.Permission;
+import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.model.AddChartRequest;
+import com.google.api.services.sheets.v4.model.BasicChartDomain;
+import com.google.api.services.sheets.v4.model.BasicChartSeries;
+import com.google.api.services.sheets.v4.model.BasicChartSpec;
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
+import com.google.api.services.sheets.v4.model.CellData;
+import com.google.api.services.sheets.v4.model.ChartData;
+import com.google.api.services.sheets.v4.model.ChartSourceRange;
+import com.google.api.services.sheets.v4.model.ChartSpec;
+import com.google.api.services.sheets.v4.model.EmbeddedChart;
+import com.google.api.services.sheets.v4.model.EmbeddedObjectPosition;
+import com.google.api.services.sheets.v4.model.ExtendedValue;
+import com.google.api.services.sheets.v4.model.GridCoordinate;
+import com.google.api.services.sheets.v4.model.GridRange;
+import com.google.api.services.sheets.v4.model.OverlayPosition;
+import com.google.api.services.sheets.v4.model.RowData;
+import com.google.api.services.sheets.v4.model.Spreadsheet;
+import com.google.api.services.sheets.v4.model.UpdateCellsRequest;
 import com.google.api.services.slides.v1.Slides;
 import com.google.api.services.slides.v1.Slides.Presentations.Pages.GetThumbnail;
 import com.google.api.services.slides.v1.model.BatchUpdatePresentationRequest;
@@ -60,6 +80,7 @@ import com.google.api.services.slides.v1.model.Thumbnail;
 import com.google.api.services.slides.v1.model.UpdateSlidesPositionRequest;
 import com.google.slidesgenerationapi.models.TemplateInfoResponse;
 import com.google.slidesgenerationapi.services.DriveService;
+import com.google.slidesgenerationapi.services.SheetsService;
 import com.google.slidesgenerationapi.services.SlidesService;
 
 @SpringBootTest
@@ -410,6 +431,24 @@ class SlidesGenerationApiApplicationTests {
     }
 
     @Test
+    public void readSheets() throws IOException, GeneralSecurityException {
+
+        Sheets sheetsService = new SheetsService().getService();
+
+        // ID of the Google Sheet (you can find it in the URL)
+        String spreadsheetId = "1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0";
+
+        // Fetch the spreadsheet
+        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(spreadsheetId).execute();
+
+        // Get the title (name) of the spreadsheet
+        String spreadsheetTitle = spreadsheet.getProperties().getTitle();
+
+        System.out.println("Spreadsheet Name: " + spreadsheetTitle);
+
+    }
+
+    @Test
     public void reorderSlides() throws IOException, GeneralSecurityException {
         Slides slidesService = new SlidesService().getService();
 
@@ -417,7 +456,7 @@ class SlidesGenerationApiApplicationTests {
         Map<String, Integer> slidesOrder = new HashMap<>();
 
         slidesOrder.put("SLIDES_API354122686_0", 3);
-        //slidesOrder.put("slideId2", 2);
+        // slidesOrder.put("slideId2", 2);
 
         String copyPresentationId = "1HGssIuAf4ugNCVmd92OYOJe7Inp9c5Hqo0iOF3XbD9c";
 
@@ -436,6 +475,92 @@ class SlidesGenerationApiApplicationTests {
         slidesService.presentations().batchUpdate(copyPresentationId, batchUpdateRequest).execute();
 
         assertTrue(true);
+    }
+
+    @Test
+    void testCreateChart() {
+        assertDoesNotThrow(() -> createChart("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0", "Sheet1"));
+    }
+
+    // Replace this method with your actual implementation
+    private void createChart(String spreadsheetId, String sheetName) throws IOException, GeneralSecurityException {
+        // Set up the Sheets service
+        Sheets sheetsService = new SheetsService().getService();
+
+        // Specify the data for the chart
+        List<RowData> rowData = new ArrayList<>();
+        List<CellData> values = new ArrayList<>();
+
+        // Assuming data for the chart is in cells A1:B5
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setStringValue("Category")));
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setStringValue("Value")));
+        rowData.add(new RowData().setValues(values));
+
+        values = new ArrayList<>();
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setStringValue("A")));
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setNumberValue(10d)));
+        rowData.add(new RowData().setValues(values));
+
+        values = new ArrayList<>();
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setStringValue("B")));
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setNumberValue(20d)));
+        rowData.add(new RowData().setValues(values));
+
+        values = new ArrayList<>();
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setStringValue("C")));
+        values.add(new CellData().setUserEnteredValue(new ExtendedValue().setNumberValue(30d)));
+        rowData.add(new RowData().setValues(values));
+
+        // Create the chart embedded in cell E1
+        EmbeddedChart chart = new EmbeddedChart()
+                .setSpec(new ChartSpec()
+                        .setTitle("My Chart")
+                        .setBasicChart(new BasicChartSpec()
+                                .setChartType("LINE")
+                                .setSeries(Arrays.asList(
+                                        new BasicChartSeries()
+                                                .setSeries(new ChartData()
+                                                        .setSourceRange(new ChartSourceRange()
+                                                                .setSources(Arrays.asList(
+                                                                        new GridRange()
+                                                                                .setEndColumnIndex(2)
+                                                                                .setEndRowIndex(4)
+                                                                                .setStartColumnIndex(1)
+                                                                                .setStartRowIndex(0)))))))
+                                .setDomains(Arrays.asList(
+                                        new BasicChartDomain()
+                                                .setDomain(new ChartData()
+                                                        .setSourceRange(new ChartSourceRange()
+                                                                .setSources(Arrays.asList(
+                                                                        new GridRange()
+                                                                                .setEndColumnIndex(1)
+                                                                                .setEndRowIndex(4)
+                                                                                .setStartColumnIndex(0)
+                                                                                .setStartRowIndex(0)))))))
+                                .setHeaderCount(1)
+                                .setLegendPosition("BOTTOM_LEGEND")
+                                .setAxis(new ArrayList<>())))
+                .setPosition(new EmbeddedObjectPosition()
+                        .setOverlayPosition(new OverlayPosition()
+                                .setOffsetXPixels(50)
+                                .setOffsetYPixels(50)
+                                .setWidthPixels(500)
+                                .setHeightPixels(350)));
+
+        List<com.google.api.services.sheets.v4.model.Request> requests = new ArrayList<>();
+        requests.add(new com.google.api.services.sheets.v4.model.Request()
+                .setUpdateCells(new UpdateCellsRequest()
+                        .setStart(new GridCoordinate().setSheetId(0).setRowIndex(0).setColumnIndex(0))
+                        .setRows(rowData)
+                        .setFields("*")));
+        requests.add(new com.google.api.services.sheets.v4.model.Request()
+                .setAddChart(new AddChartRequest()
+                        .setChart(chart)));
+
+        BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest()
+                .setRequests(requests);
+
+        sheetsService.spreadsheets().batchUpdate(spreadsheetId, batchUpdateRequest).execute();
     }
 
 }

@@ -1,5 +1,6 @@
 package com.google.slidesgenerationapi.models;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ChartInfo {
@@ -13,6 +14,11 @@ public class ChartInfo {
     private String legendPosition = "BOTTOM_LEGEND";
     private Map<String, String[]> domains;
     private Map<String, String[]> series;
+
+    public ChartInfo(){
+        domains = new HashMap<>();
+        series = new HashMap<>();
+    }
 
     public int getId() {
         return id;

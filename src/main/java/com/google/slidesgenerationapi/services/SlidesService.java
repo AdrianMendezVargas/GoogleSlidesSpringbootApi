@@ -27,7 +27,7 @@ public class SlidesService {
 
         HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         GoogleCredentials credentials = GoogleCredentials.fromStream(getClass().getClassLoader().getResourceAsStream("service-account_veloci.json"))
-                .createScoped(Collections.singleton(SlidesScopes.PRESENTATIONS));
+                .createScoped(SlidesScopes.PRESENTATIONS, SlidesScopes.SPREADSHEETS, SlidesScopes.DRIVE);
 
         return new Slides.Builder(httpTransport , JSON_FACTORY, new HttpCredentialsAdapter(credentials))
                 .setApplicationName(APPLICATION_NAME)

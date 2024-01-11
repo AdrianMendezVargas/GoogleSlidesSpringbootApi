@@ -12,6 +12,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
+import com.google.api.services.slides.v1.SlidesScopes;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 
@@ -27,7 +28,7 @@ public class SheetsService {
 
         HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         GoogleCredentials credenciales = GoogleCredentials.fromStream(getClass().getClassLoader().getResourceAsStream("service-account_veloci.json"))
-                .createScoped(Collections.singleton(SheetsScopes.SPREADSHEETS));
+                .createScoped(SlidesScopes.PRESENTATIONS, SlidesScopes.SPREADSHEETS);
 
         return new Sheets.Builder(httpTransport, JSON_FACTORY, new HttpCredentialsAdapter(credenciales))
                 .setApplicationName(APLICACION)
