@@ -94,6 +94,8 @@ import com.google.slidesgenerationapi.models.TemplateMetadata;
 import com.google.slidesgenerationapi.services.DriveService;
 import com.google.slidesgenerationapi.services.SheetsService;
 import com.google.slidesgenerationapi.services.SlidesService;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @RestController
 @RequestMapping("/api/slidesControler")
@@ -894,6 +896,26 @@ public class SlidesController {
 
         return requests;
     }
+
+    @GetMapping("/createDraft")
+    public String createDraft() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://script.google.com/macros/s/AKfycbwEHaVLnR6JEZMscCauR-MgGJFgMHB8YPTlGwBTwv9e5rbaKl_CQvKSCsPEx8MCBycq/exec"))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return response.body();
+            
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return e.getMessage();
+        }
+    }
+    
 
     private void addMarketingSlides(Map<String, String> marketingPresentationIdsToAdd, String targetPresentationId,
             Map<String, Integer> slidesOrder) {

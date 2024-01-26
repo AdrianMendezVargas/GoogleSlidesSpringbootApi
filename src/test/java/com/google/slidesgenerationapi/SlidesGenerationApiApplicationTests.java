@@ -1,6 +1,7 @@
 package com.google.slidesgenerationapi;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.FileOutputStream;
@@ -44,10 +45,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.google.api.client.googleapis.json.GoogleJsonError;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.drive.model.Permission;
+import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.Draft;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.AddChartRequest;
 import com.google.api.services.sheets.v4.model.BasicChartDomain;
@@ -70,7 +75,9 @@ import com.google.api.services.sheets.v4.model.UpdateCellsRequest;
 import com.google.api.services.slides.v1.Slides;
 import com.google.api.services.slides.v1.Slides.Presentations.Pages.GetThumbnail;
 import com.google.api.services.slides.v1.model.BatchUpdatePresentationRequest;
+import com.google.api.services.slides.v1.model.Group;
 import com.google.api.services.slides.v1.model.Page;
+import com.google.api.services.slides.v1.model.PageElement;
 import com.google.api.services.slides.v1.model.Presentation;
 import com.google.api.services.slides.v1.model.ReplaceAllShapesWithImageRequest;
 import com.google.api.services.slides.v1.model.ReplaceAllTextRequest;
@@ -80,19 +87,41 @@ import com.google.api.services.slides.v1.model.Thumbnail;
 import com.google.api.services.slides.v1.model.UpdateSlidesPositionRequest;
 import com.google.slidesgenerationapi.models.TemplateInfoResponse;
 import com.google.slidesgenerationapi.services.DriveService;
+import com.google.slidesgenerationapi.services.GmailService;
 import com.google.slidesgenerationapi.services.SheetsService;
 import com.google.slidesgenerationapi.services.SlidesService;
+
+import com.google.api.client.googleapis.json.GoogleJsonError;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.GmailScopes;
+import com.google.api.services.gmail.model.Draft;
+import com.google.api.services.gmail.model.Message;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Properties;
+import javax.mail.MessagingException;
+import javax.mail.Session;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import org.apache.commons.codec.binary.Base64;
 
 @SpringBootTest
 class SlidesGenerationApiApplicationTests {
 
-    private final ResourcePatternResolver resourcePatternResolver;
+    //private final ResourcePatternResolver resourcePatternResolver;
 
-    @Autowired
-    public SlidesGenerationApiApplicationTests(ResourceLoader resourceLoader) {
-        this.resourcePatternResolver = new PathMatchingResourcePatternResolver(resourceLoader);
+    // @Autowired
+    // public SlidesGenerationApiApplicationTests(ResourceLoader resourceLoader) {
+    //     this.resourcePatternResolver = new PathMatchingResourcePatternResolver(resourceLoader);
 
-    }
+    // }
 
     // // @BeforeAll
     // public void setUp() {
@@ -405,7 +434,7 @@ class SlidesGenerationApiApplicationTests {
         }
     }
 
-    @Test
+    //@Test
     public void readFileFromStaticFolder() {
 
         List<String> files;
@@ -430,7 +459,7 @@ class SlidesGenerationApiApplicationTests {
 
     }
 
-    @Test
+    //@Test
     public void readSheets() throws IOException, GeneralSecurityException {
 
         Sheets sheetsService = new SheetsService().getService();
@@ -448,7 +477,7 @@ class SlidesGenerationApiApplicationTests {
 
     }
 
-    @Test
+    //@Test
     public void reorderSlides() throws IOException, GeneralSecurityException {
         Slides slidesService = new SlidesService().getService();
 
@@ -477,7 +506,34 @@ class SlidesGenerationApiApplicationTests {
         assertTrue(true);
     }
 
-    @Test
+    //@Test
+    void getGroups() throws IOException, GeneralSecurityException {
+
+        int slideIndex = 9;
+        Slides slidesService = new SlidesService().getService();
+
+        Presentation presentation = slidesService.presentations().get("1divrF3aQp1HsDY_984hYk41K4OkdANS17NhL1QCIo_c")
+                .execute();
+        List<Page> slides = presentation.getSlides();
+
+        if (slideIndex < slides.size()) {
+            Page slide = slides.get(slideIndex);
+
+            List<PageElement> elements = slide.getPageElements();
+
+            for (PageElement element : elements) {
+                if (element.getObjectId() != null && element.getObjectId().startsWith("g")) {
+                    // This is a group
+                    System.out.println("Group ID: " + element.getObjectId());
+                }
+            }
+        } else {
+            System.err.println("Slide index out of bounds.");
+        }
+
+    }
+
+    //@Test
     void testCreateChart() {
         assertDoesNotThrow(() -> createChart("1J7sP682rkpLtGiRXcxJVkeCGKhCd8iUNktRomp2iEM0", "Sheet1"));
     }
@@ -561,6 +617,52 @@ class SlidesGenerationApiApplicationTests {
                 .setRequests(requests);
 
         sheetsService.spreadsheets().batchUpdate(spreadsheetId, batchUpdateRequest).execute();
+    }
+
+    //@Test
+    public void testCreateDraft() throws GeneralSecurityException, IOException, AddressException, MessagingException {
+        // Arrange
+        Gmail service = new GmailService().createGmailService();
+
+        // Create the email content
+        String messageSubject = "Test message";
+        String bodyText = "lorem ipsum.";
+
+        // Encode as MIME message
+        Properties props = new Properties();
+        Session session = Session.getDefaultInstance(props, null);
+        MimeMessage email = new MimeMessage(session);
+        email.setFrom(new InternetAddress("velociraptor088@gmail.com"));
+        email.addRecipient(javax.mail.Message.RecipientType.TO,
+                new InternetAddress("eladri-@live.com"));
+        email.setSubject(messageSubject);
+        email.setText(bodyText);
+
+        // Encode and wrap the MIME message into a gmail message
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        email.writeTo(buffer);
+        byte[] rawMessageBytes = buffer.toByteArray();
+        String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes);
+        Message message = new Message();
+        message.setRaw(encodedEmail);
+
+        try {
+            // Create the draft message
+            Draft draft = new Draft();
+            draft.setMessage(message);
+            draft = service.users().drafts().create("me", draft).execute();
+            System.out.println("Draft id: " + draft.getId());
+            System.out.println(draft.toPrettyString());
+            
+        } catch (GoogleJsonResponseException e) {
+            // TODO(developer) - handle error appropriately
+            GoogleJsonError error = e.getDetails();
+            if (error.getCode() == 403) {
+                System.err.println("Unable to create draft: " + e.getMessage());
+            } else {
+                throw e;
+            }
+        }
     }
 
 }

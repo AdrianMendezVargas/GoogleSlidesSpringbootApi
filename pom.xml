@@ -78,6 +78,22 @@
 			<version>v4-rev614-1.18.0-rc</version>
 		</dependency>
 
+		<!-- Gmail API -->
+		<dependency>
+			<groupId>com.google.apis</groupId>
+			<artifactId>google-api-services-gmail</artifactId>
+			<version>v1-rev20230206-2.0.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.sun.mail</groupId>
+			<artifactId>javax.mail</artifactId>
+			<version>1.4.7</version>
+		</dependency>
+
+
+
+
 		<!-- Google API Client Gson -->
 		<dependency>
 			<groupId>com.google.api-client</groupId>
