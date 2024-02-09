@@ -66,6 +66,7 @@ import com.google.api.services.slides.v1.Slides;
 import com.google.api.services.slides.v1.Slides.Presentations;
 import com.google.api.services.slides.v1.model.BatchUpdatePresentationRequest;
 import com.google.api.services.slides.v1.model.DeleteObjectRequest;
+import com.google.api.services.slides.v1.model.DeleteTableRowRequest;
 import com.google.api.services.slides.v1.model.InsertTableRowsRequest;
 import com.google.api.services.slides.v1.model.InsertTextRequest;
 import com.google.api.services.slides.v1.model.Page;
@@ -95,7 +96,6 @@ import com.google.slidesgenerationapi.services.DriveService;
 import com.google.slidesgenerationapi.services.SheetsService;
 import com.google.slidesgenerationapi.services.SlidesService;
 import org.springframework.web.bind.annotation.RequestParam;
-
 
 @RestController
 @RequestMapping("/api/slidesControler")
@@ -287,27 +287,40 @@ public class SlidesController {
 
                 // Current projects
                 addRowToTable(copyPresentationId, "g1e7dd5128d1_1_24",
-                        new String[] { "Project 2", "Description 2", "Focus 2", "Owner 2", "Status 2" });
+                        new String[] { "Project 2", "Description 2", "Focus 2", "Owner 2", "Status 2" }, true);
                 addRowToTable(copyPresentationId, "g1e7dd5128d1_1_24",
-                        new String[] { "Project 3", "Description 3", "Focus 3", "Owner 3", "Status 3" });
+                        new String[] { "Project 3", "Description 3", "Focus 3", "Owner 3", "Status 3" }, false);
                 addRowToTable(copyPresentationId, "g1e7dd5128d1_1_24",
-                        new String[] { "Project 4", "Description 4", "Focus 4", "Owner 4", "Status 4" });
+                        new String[] { "Project 4", "Description 4", "Focus 4", "Owner 4", "Status 4" }, false);
 
                 // SPOC List
                 for (int i = 0; i < 10; i++) {
                     addRowToTable(copyPresentationId, "g1e7dd5128d1_1_232",
-                            new String[] { "Name " + i, "Phone " + i, "Email " + i, "✔", "✔", "✔", "✔", "✔", "✔" });
+                            new String[] { "Name " + i, "Phone " + i, "Email " + i, "✔", "✔", "✔", "✔", "✔", "✔" }, i == 0);
                 }
 
                 for (int i = 0; i < 5; i++) {
                     addRowToTable(copyPresentationId, "g1e7dd5128d1_1_46",
-                            new String[] { "Name " + i, "Phone " + i, "Email " + i, "✔", "✔", "✔", "✔", "✔", "✔" });
+                            new String[] { "Name " + i, "Phone " + i, "Email " + i, "✔", "✔", "✔", "✔", "✔", "✔" }, i == 0);
                 }
 
                 // My Business
                 for (int i = 0; i < 5; i++) {
-                    addRowToTable(copyPresentationId, "g1e7dd5128d1_1_52", new String[] { "Role " + i, "✔", " " });
+                    addRowToTable(copyPresentationId, "g1e7dd5128d1_1_52", new String[] { "Role " + i, "✔", " " }, i == 0);
                 }
+
+                // Feature Summary
+                for (int i = 0; i < 10; i++) {
+                    addRowToTable(copyPresentationId, "g1e7dd5128d1_1_169",
+                            new String[] { "Feature " + i, "300", "1", "30%" }, i == 0);
+                }
+
+                // Feature Summary Bundle
+                for (int i = 0; i < 2; i++) {
+                    addRowToTable(copyPresentationId, "g1f0d5c4b458_0_0",
+                            new String[] { "Level " + i, "250", "02/02/2024", "04/10/2030" }, i == 0);
+                }
+
             }
 
         } catch (Exception e) {
@@ -318,7 +331,7 @@ public class SlidesController {
         return ResponseEntity.ok("https://docs.google.com/presentation/d/" + copyPresentationId + "/edit");
     }
 
-    private void addRowToTable(String presentationId, String tableId, String[] cellTexts) throws IOException {
+    private void addRowToTable(String presentationId, String tableId, String[] cellTexts, boolean isFirstRow) throws IOException {
         // Create a new row with cells for each column
         TableRow newRow = new TableRow();
         newRow.setTableCells(Arrays.stream(cellTexts)
@@ -332,19 +345,21 @@ public class SlidesController {
         // Retrieve the table from the presentation
         Table table = getTable(presentationId, tableId);
 
-        // Create a batch update request to add the new row to the table
-        BatchUpdatePresentationRequest batchUpdateRequest = new BatchUpdatePresentationRequest()
-                .setRequests(Collections.singletonList(new Request()
-                        .setInsertTableRows(new InsertTableRowsRequest()
-                                .setTableObjectId(tableId)
-                                .setInsertBelow(true)
-                                .setNumber(1)
-                                .setCellLocation(new TableCellLocation()
-                                        .setRowIndex(table.getRows() - 1)
-                                        .setColumnIndex(0)))));
+        List<Request> requests = new ArrayList<>();
 
-        // Execute the batch update request
-        slidesService.presentations().batchUpdate(presentationId, batchUpdateRequest).execute();
+        // Add insert requests
+        requests.add(new Request()
+                .setInsertTableRows(new InsertTableRowsRequest()
+                        .setTableObjectId(tableId)
+                        .setInsertBelow(true)
+                        .setNumber(1)
+                        .setCellLocation(new TableCellLocation()
+                                .setRowIndex(table.getRows() - 1)
+                                .setColumnIndex(0))));
+
+        
+
+        // Create a batch update request to add the new row to the table
 
         // Now, you can add the data to the new row using InsertText requests
         int rowNumber = table.getRows();
@@ -359,12 +374,26 @@ public class SlidesController {
                                         .setColumnIndex(index))))
                 .collect(Collectors.toList());
 
-        // Create another batch update request to add text to the cells
-        BatchUpdatePresentationRequest insertTextBatchUpdateRequest = new BatchUpdatePresentationRequest()
-                .setRequests(insertTextRequests);
+        requests.addAll(insertTextRequests);
 
-        // Execute the batch update request to add text to the cells
-        slidesService.presentations().batchUpdate(presentationId, insertTextBatchUpdateRequest).execute();
+        // Add delete request to delete the first tempate row of the table if there are 2 rows in the table, (header and template row)
+        if(isFirstRow){
+            requests.add(new Request()
+                .setDeleteTableRow(new DeleteTableRowRequest()
+                        .setTableObjectId(tableId)
+                        .setCellLocation(new TableCellLocation()
+                                .setRowIndex(1)
+                                .setColumnIndex(0))));
+        }
+        
+
+        BatchUpdatePresentationRequest batchUpdateRequest = new BatchUpdatePresentationRequest()
+                .setRequests(requests);
+
+        // Execute the batch update request
+        slidesService.presentations().batchUpdate(presentationId, batchUpdateRequest).execute();
+
+
     }
 
     private Table getTable(String presentationId, String tableId) throws IOException {
@@ -773,7 +802,8 @@ public class SlidesController {
                 // Logic for domains and series
                 // Logic for domains
                 for (int i = 0; i < chartPlaceholder.getValue().getDomains().size(); i++) {
-                    Entry<String, String[]> domain = (Entry<String, String[]>)chartPlaceholder.getValue().getDomains().entrySet().toArray()[i];
+                    Entry<String, String[]> domain = (Entry<String, String[]>) chartPlaceholder.getValue().getDomains()
+                            .entrySet().toArray()[i];
 
                     chartSpec.getBasicChart().setDomains(new ArrayList<>());
                     chartSpec.getBasicChart().getDomains().add(new BasicChartDomain()
@@ -808,7 +838,8 @@ public class SlidesController {
 
                 // Logic for series
                 for (int i = 0; i < chartPlaceholder.getValue().getSeries().size(); i++) {
-                    Entry<String, String[]> series = (Entry<String, String[]>)chartPlaceholder.getValue().getSeries().entrySet().toArray()[i];
+                    Entry<String, String[]> series = (Entry<String, String[]>) chartPlaceholder.getValue().getSeries()
+                            .entrySet().toArray()[i];
 
                     chartSpec.getBasicChart().setSeries(new ArrayList<>());
                     chartSpec.getBasicChart().getSeries().add(new BasicChartSeries()
@@ -901,21 +932,20 @@ public class SlidesController {
     public String createDraft() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://script.google.com/macros/s/AKfycbwEHaVLnR6JEZMscCauR-MgGJFgMHB8YPTlGwBTwv9e5rbaKl_CQvKSCsPEx8MCBycq/exec"))
+                    .uri(URI.create(
+                            "https://script.google.com/macros/s/AKfycbwEHaVLnR6JEZMscCauR-MgGJFgMHB8YPTlGwBTwv9e5rbaKl_CQvKSCsPEx8MCBycq/exec"))
                     .GET()
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             return response.body();
-            
 
         } catch (Exception e) {
             e.printStackTrace();
             return e.getMessage();
         }
     }
-    
 
     private void addMarketingSlides(Map<String, String> marketingPresentationIdsToAdd, String targetPresentationId,
             Map<String, Integer> slidesOrder) {
